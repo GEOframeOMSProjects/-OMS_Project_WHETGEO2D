@@ -1,0 +1,202 @@
+/*
+ * WHETGEO-2D 
+ * 	Srivastava Yeh 1991
+ * 	Layered soil wetting set 2
+ * 
+ * Author: Niccolò Tubini and Riccardo Rigon
+ */
+import static oms3.SimBuilder.instance as OMS3
+import static oms3.SimBuilder.*
+def home = oms_prj
+
+
+
+def richardsGridFileName = "$oms_prj//data/mesh/Srivastatva_Yeh_1991/Srivastava_Yeh_1991_homogeneous.csv"
+
+def typeClosureEquation = "{Gardner}"
+
+def typeEquationState = "{Gardner}"
+
+def typeUHCModel = "{Gardner}"
+
+def typeUHCTemperatureModel = "notemperature"
+
+def interfaceHydraulicConductivityModel = "harmonic mean"
+
+def boundaryConditionFileName = "$oms_prj//data/timeseries/Srivastava_Yeh_1991/Srivastava_Yeh_1991_wetting.csv"
+
+def saveDatesFileName = "$oms_prj//data/timeseries/Srivastava_Yeh_1991/Srivastava_Yeh_1991_save.csv"
+
+
+def startDate= "2020-01-01 00:00"
+
+def endDate="2020-01-06 00:00"
+
+def tTimestep = 1
+
+
+
+def outputFileName = "$oms_prj//output/Srivastava_Yeh_1991_homogeneous_wetting_set2.nc"
+
+def writeFrequency = 2500
+
+
+solver = OMS3.sim(name: "Integrate PDE", {
+
+resource "$oms_prj/dist"
+
+	model(while : "reader_BC.doProcess"  ){
+
+		components {
+			
+			// 
+			"read_mesh" 			"it.geoframe.blogspot.geomesh.readmesh.ReadCSVStructured2D"
+			
+			// solve Richards' equation
+			"mesh" 					"it.geoframe.blogspot.geomesh.definemesh.Mesh2DMain"
+			
+			"solver" 				"it.geoframe.blogspot.whetgeo2d.richardssolver.RichardsSolver2DMain"
+			
+			
+			"initial_condition_psi"   "it.geoframe.blogspot.whetgeo2d.initialcondition.ReadFromFile"
+			"temperature_field"       "it.geoframe.blogspot.whetgeo2d.initialcondition.ReadFromFile"
+			
+			// time-series reader
+			"reader_BC"            	"org.hortonmachine.gears.io.timedependent.OmsTimeSeriesIteratorReader"
+			"reader_save_dates"    	"org.hortonmachine.gears.io.timedependent.OmsTimeSeriesIteratorReader"
+			
+			// this component stores solver's output during the simulation
+			"buffer" 				"it.geoframe.blogspot.buffer.buffertowriter.RichardsBuffer2D"
+				
+			// output writer in a NetCDF format
+			"write_netcdf" 			"it.geoframe.blogspot.netcdf.bidimensionalproblemtimedependent.WriteNetCDFRichards2D"
+		
+		}
+		
+		parameter {
+
+			"read_mesh.fileName" "${richardsGridFileName}"
+			
+			"mesh.meshType"      "cartesian"
+			"mesh.geometryType"  "EuclideanCartesian"
+			
+			"initial_condition_psi.fileName" "$oms_prj/data/mesh/Srivastatva_Yeh_1991/Srivastava_Yeh_1991_psi_0_layered_wetting_set2.csv" 
+			
+			"temperature_field.fileName"     "$oms_prj/data/mesh//Srivastatva_Yeh_1991/Srivastava_Yeh_1991_temperature_layered.csv"
+			
+			
+			"solver.alphaSpecificStorage"  "{0.0}"
+			"solver.betaSpecificStorage"   "{0.0}"
+			"solver.thetaS"                "{0.45}"
+			"solver.thetaR"                "{0.2}"
+			"solver.par1SWRC"              "{1,1}"
+			"solver.par2SWRC"              "{-9999.0}"
+			"solver.par3SWRC"              "{-9999.0}"
+			"solver.par4SWRC"              "{-9999.0}"
+			"solver.par5SWRC"              "{-9999.0}"
+			"solver.ks"                    "{2.777777777777778e-06}"
+		
+			
+			"solver.typeClosureEquation" "${typeClosureEquation}"
+ 	
+ 			"solver.typeEquationState" "${typeEquationState}"
+ 			
+			"solver.typeUHCModel" "${typeUHCModel}"
+
+			"solver.typeUHCTemperatureModel" "${typeUHCTemperatureModel}"
+            
+			"solver.interfaceHydraulicConductivityModel" "${interfaceHydraulicConductivityModel}"
+			
+			"solver.newtonTolerance" "1e-8"
+
+			
+			"solver.picardIteration" "1"
+
+
+			"solver.tTimeStep" tTimestep*60
+
+
+			"solver.timeDelta" tTimestep*60
+
+			"reader_BC.file"             "${boundaryConditionFileName}"
+			"reader_BC.idfield"          "ID"  
+			"reader_BC.tStart"           "${startDate}"
+			"reader_BC.tEnd"             "${endDate}"
+			"reader_BC.tTimestep"        "${tTimestep}"
+			"reader_BC.fileNovalue"      "-9999"
+		
+			"reader_save_dates.file"             "${saveDatesFileName}"
+			"reader_save_dates.idfield"          "ID"  
+			"reader_save_dates.tStart"           "${startDate}"
+			"reader_save_dates.tEnd"             "${endDate}"
+			"reader_save_dates.tTimestep"        "${tTimestep}"
+			"reader_save_dates.fileNovalue"      "-9999"
+			
+			
+			"buffer.writeFrequency"                   "${writeFrequency}"
+
+			"write_netcdf.fileName"                       "${outputFileName}"
+			"write_netcdf.briefDescritpion"               "WHETGEO-2D Srivastava Yeh 1991 - homogeneous wetting set 2."
+			"write_netcdf.writeFrequency"                 "${writeFrequency}"
+			"write_netcdf.timeUnits"                      "Minutes since 01/01/1970 00:00:00 UTC"
+			"write_netcdf.timeZone"                       "UTC"
+			"write_netcdf.fileSizeMax"                    "10000"
+			"write_netcdf.outVariables"                   "{}"
+			"write_netcdf.pathGrid"		                 "${richardsGridFileName}"
+			"write_netcdf.pathBC"		                 "${boundaryConditionFileName}"
+			"write_netcdf.swrcModel"                      "${typeClosureEquation}"
+			"write_netcdf.soilHydraulicConductivityModel" "${typeUHCModel}"
+			"write_netcdf.interfaceHydraulicConductivityModel"     "${interfaceHydraulicConductivityModel}"
+			
+		}
+
+		connect{
+
+ 			
+			 "read_mesh.verticesCoordinates"         "mesh.verticesCoordinates"      
+			 "read_mesh.elementsLabel"               "mesh.elementsLabel"            
+			 "read_mesh.elementsVertices"            "mesh.elementsVertices"         
+			 "read_mesh.borderEdgesVertices"         "mesh.borderEdgesVertices"      
+			 "read_mesh.borderEdgesLabel"            "mesh.borderEdgesLabel"         
+			
+//			"mesh.elementsCentroidsCoordinates"      "initial_condition_psi.elementsCentroidsCoordinates"    
+//			"mesh.elementsCentroidsCoordinates"      "temperature_field.elementsCentroidsCoordinates"
+			
+			"mesh.edgeLeftNeighbour"                 "solver.edgeLeftNeighbour"             
+			"mesh.edgeRightNeighbour"                "solver.edgeRightNeighbour"            
+			"mesh.elementEdgesSet"                   "solver.elementEdgesSet"               
+			"mesh.elementsArea"                      "solver.elementsArea"                  
+			"mesh.edgesLength"                       "solver.edgesLenght"                   
+			"mesh.delta_j"                           "solver.delta_j"               		   
+			"mesh.edgeNormalVector"                  "solver.edgeNormalVector"              
+			"mesh.elementsCentroidsCoordinates"      "solver.elementsCentroidsCoordinates"  
+			"mesh.edgesCentroidsCoordinates"         "solver.edgesCentroidsCoordinates"     
+			"mesh.elementEquationStateID"            "solver.elementEquationStateID"        
+			"mesh.elementParameterID"                "solver.elementParameterID"            
+			"mesh.edgeBoundaryBCType"                "solver.edgesBoundaryBCType"           
+			"mesh.edgeBoundaryBCValue"               "solver.edgesBoundaryBCValue"          
+			
+			"initial_condition_psi.initialCondition"     "solver.icWaterSuction"           
+			"temperature_field.initialCondition"     "solver.temperature"          
+			
+			
+			"reader_BC.outData"                      "solver.inHMBoundaryCondition" 
+			"reader_save_dates.outData"              "solver.inSaveDate"
+			
+			"reader_BC.tCurrent"                     "buffer.inputDate"             
+			"solver.outputToBuffer"                  "buffer.inputVariable"         
+			"solver.doProcessBuffer"                 "buffer.doProcessBuffer"       
+			
+			"buffer.variable"                        "write_netcdf.variables"              
+			"mesh.elementsCentroidsCoordinates"      "write_netcdf.spatialCoordinate"      
+			"mesh.edgesCentroidsCoordinates"         "write_netcdf.dualSpatialCoordinate"  
+			"initial_condition_psi.initialCondition"   "write_netcdf.psiIC"                  
+			"temperature_field.initialCondition"     "write_netcdf.temperature"            
+			"reader_BC.doProcess"                    "write_netcdf.doProcess"              
+			
+		}
+	}
+
+	}
+
+)
